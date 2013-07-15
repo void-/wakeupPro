@@ -1,7 +1,7 @@
 from sys import argv
 from os import system
 from time import sleep, strptime
-from random import randint
+from random import randint, choice
 import threading, datetime
 
 class Alarm(object):
@@ -58,7 +58,7 @@ class Alarm(object):
   def ACCLIMATE_PATTERN(iteration):
     """Return a number in an exponential regression for a given iteration."""
 
-    return .5274 * iteration**(-1.5214))
+    return .5274 * (iteration**(-1.5214))
 
   def startBeeps(self):
     """Start a beep thread and beep until stop is called."""
@@ -71,23 +71,25 @@ class Alarm(object):
     self._beeper.stop()
 
   def loadDict(self):
-    """Load all entries fom DICT_PATH into _dict."""
+    """Load all entries fom DICT_PATH into _dict and remove newlines."""
 
     with file(self.DICT_PATH, "r") as f:
       i = 0
       for line in f.readlines():
-        self._dict[i] = line
+        self._dict[i] = line.rstrip("\n")
         i+=1
 
   def startAlarm(self):
     """Start the alarm clock and sleep and start beeping when done."""
 
-    now = datetime.datetime.today()
+    #Print sleep message
+    print(choice(self.SLEEP_MSG))
+    now = datetime.datetime.today() 
     wait = (self.wakeupTime - now).total_seconds()
     self.logSleep(now, wait)
     if self.acclimate and wait > Alarm.ACCLIMATE_LENGTH: 
       Alarm.SLEEP(wait - Alarm.ACCLIMATE_LENGTH)
-      for i in range(1,6):
+      for i in xrange(1,6):
         Alarm.BEEP()
         Alarm.SLEEP(Alarm.ACCLIMATE_LENGTH * Alarm.ACCLIMATE_PATTERN(i))
     else:
@@ -100,14 +102,16 @@ class Alarm(object):
 
     start = datetime.datetime.today()
     self.loadDict() #load the dictionary
-    stopCode = " ".join(lambda: self._dict[randint(0, len(self._dict))-1] \
-      for _ in range(randint(*Alarm.CODE_LENGTH)))
+    stopCode = " ".join(self._dict[randint(0, len(self._dict))-1] \
+      for _ in xrange(randint(*Alarm.CODE_LENGTH)))
 
-    while raw_input(stopCode) != stopCode: pass
+    while raw_input(stopCode+"\n") != stopCode:
+      print("incorrect input")
+    self.stopBeeps()
     stop = datetime.datetime.today()
     #mark dictionary for garbage collection
     self._dict = None 
-    logStop((stop - start).total_seconds())
+    self.logStop((stop - start).total_seconds())
 
   def logSleep(self, date, sleepTime):
     """Write to the log how long the alarm slept on which date.
@@ -120,7 +124,7 @@ class Alarm(object):
     
     """
     with file(self.LOG_PATH,"a") as f:
-      f.write(str(date)+", "+sleepTime+"\n")
+      f.write(str(date)+", "+str(sleepTime)+"\n")
 
   def logStop(self, time):
     """Write to the log how long it look for the alarm to stop.
@@ -142,14 +146,12 @@ class Alarm(object):
     if " -a " in argv:
       acclimate = True
 
-    if len(argv) < 2:
-      timestruct = raw_input("Enter wakeup time in the format: HH:MM")
-    else:
-      timestruct = strptime(argv[1],"%H:%M")
+    timestruct = strptime((raw_input("Enter wakeup time in the format: HH:MM ")\
+      if len(argv) < 2 else argv[1]),"%H:%M")
 
     today = datetime.datetime.today()
     time = datetime.datetime(today.year, today.month, today.day, \
-      timestruct.tm_hour, minute = timestruct.tm_minute)
+      timestruct.tm_hour, minute = timestruct.tm_min)
     #if the time has happened already, assume its for tomorrow
     if timestruct.tm_hour < today.hour and timestruct.tm_min < today.minute:
       time+=datetime.timedelta(1)
