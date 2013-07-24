@@ -6,24 +6,31 @@ import threading, datetime
 
 class Alarm(object):
   """Alarm object that, given a time to wakeup, can sleep and then beep.
-  
+
+  Shutting off the alarm requires the user to input a generated sequence 
+  of dictionary words. Relevant data is logged throughout the process.
+
   Class Variables:
     SLEEP_MSG tuple containing possible messages to display once activated.
+    INCORRECT_MSG string to display when shutoff input does not match.
+    SHUTOFF_MSG string to display when user is prompted to shutoff alarm.
     ACCLIMATE_LENGTH the length of acclimation time in seconds.
-    BEEP_INTERVAL the number of seconds between alarm beeps beeps.
+    BEEP_INTERVAL number of seconds between alarm beeps beeps.
     CODE_LENGTH tuple defining a lower and upper bounds for the code length.
-    LOG_PATH the path for the log file.
-    DICT_PATH the path for the dictionary used for the deactivation code.
+    LOG_PATH path for the log file.
+    DICT_PATH path for the dictionary used for the deactivation code.
 
   Member Variables:
-    wakeupTime datetime object for when the alarm is to beep.
+    wakeupTime datetime object for when the alarm is set to go off.
     acclimate boolean indicating if the alarm should make acclamitory beeps.
     _beeper Beeper instance for beeping on a separate thread.
     _dict python dictionary with words from DICT_PATH.
-    
+
   """
 
   SLEEP_MSG = ("Sweet Dreams","Goodnight")
+  INCORRECT_MSG = "incorrect input"
+  SHUTOFF_MSG = "Enter the following to terminate alarm:"
   ACCLIMATE_LENGTH = 5 * 60
   BEEP_INTERVAL = .5
   CODE_LENGTH = (4,8)
@@ -31,7 +38,7 @@ class Alarm(object):
   DICT_PATH = "/etc/dictionaries-common/words"
 
   def __init__(self, wakeupTime, acclimate=False):
-    """Initialize an Alarm given wakeup time and optional acclimate boolean"""
+    """Initialize an Alarm given wakeup time and optional acclimate boolean."""
 
     self.wakeupTime = wakeupTime
     self.acclimate = acclimate
@@ -39,14 +46,16 @@ class Alarm(object):
     self._dict = {}
 
   @staticmethod
-  def BEEP():
-    """Make the computer beep by the internal speaker.
-    
+  def BEEP(frequency=-1):
+    """Make the computer beep by the internal speaker with optional frequency.
+
+    If no frequency is specified, the system default is used.
     The current implementation relies on system calls to beep.
     This method may need to be adjusted depending upon the system.
-    """
 
-    system("beep -e /dev/input/by-path/platform-pcspkr-event-spkr")
+    """
+    system("beep %s -e /dev/input/by-path/platform-pcspkr-event-spkr" % \
+      ("" if (frequency == -1) else ("-f %i" %frequency)))
 
   @staticmethod
   def SLEEP(seconds):
@@ -71,7 +80,7 @@ class Alarm(object):
     self._beeper.stop()
 
   def loadDict(self):
-    """Load all entries fom DICT_PATH into _dict and remove newlines."""
+    """Load all entries from DICT_PATH into _dict and remove newlines."""
 
     with file(self.DICT_PATH, "r") as f:
       i = 0
@@ -80,18 +89,29 @@ class Alarm(object):
         i+=1
 
   def startAlarm(self):
-    """Start the alarm clock and sleep and start beeping when done."""
+    """Start the alarm clock and sleep and start beeping when done.
+
+    The procedure:
+    Display a random sleep message to the user. Compute the number of
+    seconds between the time the alarm is started and the time to wakeup.
+    Log when the user goes to sleep and wait. If acclamitory beeps are
+    enabled, wait for less time and then make occasional beeps, waiting
+    in-between. When its time for the user to wake-up, start a beeping
+    thread.
+
+    """
 
     #Print sleep message
     print(choice(self.SLEEP_MSG))
     now = datetime.datetime.today() 
     wait = (self.wakeupTime - now).total_seconds()
     self.logSleep(now, wait)
-    if self.acclimate and wait > Alarm.ACCLIMATE_LENGTH: 
+    if self.acclimate and wait > self.ACCLIMATE_LENGTH: 
       Alarm.SLEEP(wait - Alarm.ACCLIMATE_LENGTH)
       for i in xrange(1,6):
-        Alarm.BEEP()
-        Alarm.SLEEP(Alarm.ACCLIMATE_LENGTH * Alarm.ACCLIMATE_PATTERN(i))
+        i = Alarm.ACCLIMATE_PATTERN(i)#Reassign i so its value can be used
+        Alarm.BEEP(4000*i)#Modulate the frequency
+        Alarm.SLEEP(Alarm.ACCLIMATE_LENGTH * i)
     else:
       self.SLEEP(wait)
     #Start beeping
@@ -101,34 +121,37 @@ class Alarm(object):
     """Stop the alarm clock when the user enters the correct word sequence."""
 
     start = datetime.datetime.today()
-    self.loadDict() #load the dictionary
+    self.loadDict() #Load the dictionary
+    #Construct a phrase from a random number of random words in the dictionary
     stopCode = " ".join(self._dict[randint(0, len(self._dict))-1] \
-      for _ in xrange(randint(*Alarm.CODE_LENGTH)))
+      for _ in xrange(randint(*self.CODE_LENGTH)))
 
-    while raw_input(stopCode+"\n") != stopCode:
-      print("incorrect input")
+    print self.SHUTOFF_MSG
+    while raw_input("%s\n  "%stopCode) != stopCode:
+      print(self.INCORRECT_MSG)
     self.stopBeeps()
     stop = datetime.datetime.today()
-    #mark dictionary for garbage collection
+
+    #Mark dictionary for garbage collection
     self._dict = None 
     self.logStop((stop - start).total_seconds())
 
   def logSleep(self, date, sleepTime):
-    """Write to the log how long the alarm slept on which date.
-    
+    """Write to the log on which date for how long the alarm slept.
+
     Given a datetime object and the number of seconds slept, write
     to the log in the following format:
       YYYY-MM-DD HH:MM:SS.SSSSSS, #ofSeconds\n
     Ex.:
       2013-07-06 13:21:12.632746, 10856
-    
+
     """
     with file(self.LOG_PATH,"a") as f:
-      f.write(str(date)+", "+str(sleepTime)+"\n")
+      f.write("%s, %s\n" % (str(date), str(sleepTime)))
 
   def logStop(self, time):
     """Write to the log how long it look for the alarm to stop.
-    
+
     Given a floating point number representing the number of seconds it took
     for the alarm to stop, write it to the log in the following format:
       stop: #\n
@@ -136,23 +159,27 @@ class Alarm(object):
     """
 
     with file(self.LOG_PATH,"a") as f:
-      f.write("stop: "+str(time)+"\n")
+      f.write("stop: %s\n" % str(time))
 
   @staticmethod
   def main(argv):
-    """Main method."""
+    """Main method.
 
-    acclimate = False
-    if " -a " in argv:
-      acclimate = True
+    If no time is given as an argument, accept input from the user.
+    Create an alarm and start it to go off for the specified time.
+    If given as an argument, create the alarm to make acclamitory beeps.
 
+    """
+    acclimate = ("-a" in argv)
+
+    #Create a timestruct from user input if no argument was given
     timestruct = strptime((raw_input("Enter wakeup time in the format: HH:MM ")\
       if len(argv) < 2 else argv[1]),"%H:%M")
 
     today = datetime.datetime.today()
     time = datetime.datetime(today.year, today.month, today.day, \
       timestruct.tm_hour, minute = timestruct.tm_min)
-    #if the time has happened already, assume its for tomorrow
+    #If the time has happened already, assume its for tomorrow: add 1 day
     if timestruct.tm_hour < today.hour and timestruct.tm_min < today.minute:
       time+=datetime.timedelta(1)
 
@@ -162,7 +189,7 @@ class Alarm(object):
 
 class Beeper(threading.Thread):
   """Beeper object that beeps on another thread until stopped.
-  
+
   Subclasses Thread and overrides the run method to beep. The
   beeping thread is started by calling run() and stopped by
   a call to stop(). Once stop() is called, run() has no effect.
@@ -178,7 +205,7 @@ class Beeper(threading.Thread):
 
     threading.Thread.__init__(self, None, None, None, (), {})
     self._beep = True
-    
+
   def run(self):
     """Beep and wait a certain interval until stop() is called."""
 
@@ -188,11 +215,11 @@ class Beeper(threading.Thread):
 
   def stop(self): 
     """Stop the beeping thread.
-    
+
     If the Beeper is not currently beeping,
     calls to run() will have no effect.
-    """
 
+    """
     self._beep = False
 
 #Execute the main method
