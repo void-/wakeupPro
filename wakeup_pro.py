@@ -32,16 +32,19 @@ class Alarm(object):
   INCORRECT_MSG = "incorrect input"
   SHUTOFF_MSG = "Enter the following to terminate alarm:"
   ACCLIMATE_LENGTH = 5 * 60
-  BEEP_INTERVAL = .5
+  ACCELERATE_BEEPS = 10
+  ACCELERATE_TIME = 1 * 60 * 60
+  BEEP_INTERVAL = 1
   CODE_LENGTH = (4,8)
   LOG_PATH = "./.sleeplog"
   DICT_PATH = "/etc/dictionaries-common/words"
 
-  def __init__(self, wakeupTime, acclimate=False):
+  def __init__(self, wakeupTime, acclimate=False, accelerate=False):
     """Initialize an Alarm given wakeup time and optional acclimate boolean."""
 
     self.wakeupTime = wakeupTime
     self.acclimate = acclimate
+    self.accelerate = accelerate
     self._beeper = Beeper()
     self._dict = {}
 
@@ -104,10 +107,15 @@ class Alarm(object):
 
     #Print sleep message
     print(choice(self.SLEEP_MSG))
-    now = datetime.datetime.today() 
+    now = datetime.datetime.today()
     wait = (self.wakeupTime - now).total_seconds()
     self.logSleep(now, wait)
-    if self.acclimate and wait > self.ACCLIMATE_LENGTH: 
+    if(self.accelerate and wait > Alarm.ACCELERATE_TIME):
+      Alarm.SLEEP(wait - Alarm.ACCELERATE_TIME)
+      wait -= (wait - Alarm.ACCELERATE_TIME) #setup for acclimate
+      for _ in xrange(Alarm.ACCELERATE_BEEPS):
+        Alarm.BEEP()
+    if (self.acclimate and wait > Alarm.ACCLIMATE_LENGTH):
       Alarm.SLEEP(wait - Alarm.ACCLIMATE_LENGTH)
       for i in xrange(1,6):
         i = Alarm.ACCLIMATE_PATTERN(i)#Reassign i so its value can be used
@@ -134,7 +142,7 @@ class Alarm(object):
     stop = datetime.datetime.today()
 
     #Mark dictionary for garbage collection
-    self._dict = None 
+    self._dict = None
     self.logStop((stop - start).total_seconds())
 
   def logSleep(self, date, sleepTime):
@@ -172,6 +180,7 @@ class Alarm(object):
 
     """
     acclimate = ("-a" in argv)
+    accelerate = ("-x" in argv)
 
     #Create a timestruct from user input if no argument was given
     timestruct = strptime((raw_input("Enter wakeup time in the format: HH:MM ")\
@@ -184,7 +193,7 @@ class Alarm(object):
     if timestruct.tm_hour < today.hour and timestruct.tm_min < today.minute:
       time+=datetime.timedelta(1)
 
-    a = Alarm(time, acclimate)
+    a = Alarm(time, acclimate, accelerate)
     a.startAlarm()
     a.stopAlarm()
 
