@@ -54,8 +54,9 @@ class Alarm(object):
     This method may need to be adjusted depending upon the system.
 
     """
-    system("beep %s -e /dev/input/by-path/platform-pcspkr-event-spkr" % \
-      ("" if (frequency == -1) else ("-f %i" %frequency)))
+    system("paplay /usr/share/sounds/ubuntu/stereo/message.ogg");
+    #system("beep %s -e /dev/input/by-path/platform-pcspkr-event-spkr" % \
+    #  ("" if (frequency == -1) else ("-f %i" %frequency)))
 
   @staticmethod
   def SLEEP(seconds):
