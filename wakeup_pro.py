@@ -7,7 +7,7 @@ import threading, datetime
 class Alarm(object):
   """Alarm object that, given a time to wakeup, can sleep and then beep.
 
-  Shutting off the alarm requires the user to input a generated sequence 
+  Shutting off the alarm requires the user to input a generated sequence
   of dictionary words. Relevant data is logged throughout the process.
 
   Class Variables:
@@ -190,7 +190,7 @@ class Alarm(object):
     time = datetime.datetime(today.year, today.month, today.day, \
       timestruct.tm_hour, minute = timestruct.tm_min)
     #If the time has happened already, assume its for tomorrow: add 1 day
-    if timestruct.tm_hour < today.hour and timestruct.tm_min < today.minute:
+    if today > time:
       time+=datetime.timedelta(1)
 
     a = Alarm(time, acclimate, accelerate)
@@ -223,7 +223,7 @@ class Beeper(threading.Thread):
       Alarm.BEEP()
       Alarm.SLEEP(Alarm.BEEP_INTERVAL)
 
-  def stop(self): 
+  def stop(self):
     """Stop the beeping thread.
 
     If the Beeper is not currently beeping,
