@@ -11,9 +11,12 @@ Additional features:
     - The alarm will make an exponential regression of beeps at varying
     - frequencies to make waking up a more gradual process.
 * Option for accelerated sleep
-    - The alarm will sound a number of times 1 hour before the user is to wake
-    - up but not require it to be shut off. This leads to accelerated REM
+    - The alarm will beep a number of times 1 hour before the user is to wake
+    - up but not require it to be shut off. This can lead to accelerated REM
     - sleep.
+* Anti copy-paste mechanism
+    - The output random string cannot be directly copied and pasted to shut off
+      the alarm.
 * Logging
     - Logs how long the alarm sleeps on a certain day.
     - It also logs how long it takes for the alarm to be shut off for a metric
