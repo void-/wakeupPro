@@ -14,6 +14,7 @@ class Alarm(object):
     SLEEP_MSG tuple containing possible messages to display once activated.
     INCORRECT_MSG string to display when shutoff input does not match.
     SHUTOFF_MSG string to display when user is prompted to shutoff alarm.
+    ANTI_COPY_MSG string that is invisible and affects terminal copying.
     ACCLIMATE_LENGTH the length of acclimation time in seconds.
     BEEP_INTERVAL number of seconds between alarm beeps beeps.
     CODE_LENGTH tuple defining a lower and upper bounds for the code length.
@@ -31,6 +32,7 @@ class Alarm(object):
   SLEEP_MSG = ("Sweet Dreams","Goodnight")
   INCORRECT_MSG = "incorrect input"
   SHUTOFF_MSG = "Enter the following to terminate alarm:"
+  ANTI_COPY_MSG = "\x7f"
   ACCLIMATE_LENGTH = 5 * 60
   ACCELERATE_BEEPS = 10
   ACCELERATE_TIME = 1 * 60 * 60
@@ -110,17 +112,17 @@ class Alarm(object):
     now = datetime.datetime.today()
     wait = (self.wakeupTime - now).total_seconds()
     self.logSleep(now, wait)
-    if(self.accelerate and wait > Alarm.ACCELERATE_TIME):
-      Alarm.SLEEP(wait - Alarm.ACCELERATE_TIME)
-      wait -= (wait - Alarm.ACCELERATE_TIME) #setup for acclimate
-      for _ in xrange(Alarm.ACCELERATE_BEEPS):
+    if(self.accelerate and wait > self.ACCELERATE_TIME):
+      Alarm.SLEEP(wait - self.ACCELERATE_TIME)
+      wait -= (wait - self.ACCELERATE_TIME) #setup for acclimate
+      for _ in xrange(self.ACCELERATE_BEEPS):
         Alarm.BEEP()
-    if (self.acclimate and wait > Alarm.ACCLIMATE_LENGTH):
-      Alarm.SLEEP(wait - Alarm.ACCLIMATE_LENGTH)
+    if (self.acclimate and wait > self.ACCLIMATE_LENGTH):
+      Alarm.SLEEP(wait - self.ACCLIMATE_LENGTH)
       for i in xrange(1,6):
-        i = Alarm.ACCLIMATE_PATTERN(i)#Reassign i so its value can be used
+        i = self.ACCLIMATE_PATTERN(i)#Reassign i so its value can be used
         Alarm.BEEP(4000*i)#Modulate the frequency
-        Alarm.SLEEP(Alarm.ACCLIMATE_LENGTH * i)
+        Alarm.SLEEP(self.ACCLIMATE_LENGTH * i)
     else:
       self.SLEEP(wait)
     #Start beeping
@@ -136,7 +138,7 @@ class Alarm(object):
       for _ in xrange(randint(*self.CODE_LENGTH)))
 
     print self.SHUTOFF_MSG
-    while raw_input("%s\n  "%stopCode) != stopCode:
+    while raw_input("%s  %s\n  "%(stopCode, self.ANTI_COPY_MSG)) != stopCode:
       print(self.INCORRECT_MSG)
     self.stopBeeps()
     stop = datetime.datetime.today()
