@@ -32,7 +32,7 @@ class Alarm(object):
   SLEEP_MSG = ("Sweet Dreams","Goodnight")
   INCORRECT_MSG = "incorrect input"
   SHUTOFF_MSG = "Enter the following to terminate alarm:"
-  ANTI_COPY_MSG = "\x7f"
+  ANTI_COPY_MSG = " "
   ACCLIMATE_LENGTH = 5 * 60
   ACCELERATE_BEEPS = 10
   ACCELERATE_TIME = 1 * 60 * 60
