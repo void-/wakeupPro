@@ -185,8 +185,8 @@ class Alarm(object):
     accelerate = ("-x" in argv)
 
     #Create a timestruct from user input if no argument was given
-    timestruct = strptime((raw_input("Enter wakeup time in the format: HH:MM ")\
-      if len(argv) < 2 else argv[1]),"%H:%M")
+    timestruct = strptime((raw_input("Enter wakeup time in the format:" \
+      " HH:MM ") if len(argv) < 2 else argv[1]),"%H:%M")
 
     today = datetime.datetime.today()
     time = datetime.datetime(today.year, today.month, today.day, \
