@@ -1,3 +1,4 @@
+#!/usr/bin/python
 from sys import argv
 from os import system
 from time import sleep, strptime
