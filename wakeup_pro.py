@@ -2,7 +2,7 @@
 from sys import argv
 from os import system
 from time import sleep, strptime
-from random import randint, choice
+from random import randint, choice, random
 import threading, datetime
 
 class Alarm(object):
@@ -95,6 +95,19 @@ class Alarm(object):
         self._dict[i] = line.rstrip("\n")
         i+=1
 
+  def genPhrase(self):
+    """Generate an alarm shutoff string using a stream algorithm."""
+
+    words = range(randint(*self.CODE_LENGTH))
+    p = 1.0
+    with file(self.DICT_PATH, "r") as f:
+      for line in f.readlines():
+        for i in xrange(len(words)):
+          if random() < (1/p):
+            words[i] = line.rstrip("\n")
+        p += 1
+    return " ".join(words)
+
   def startAlarm(self):
     """Start the alarm clock and sleep and start beeping when done.
 
@@ -133,10 +146,11 @@ class Alarm(object):
     """Stop the alarm clock when the user enters the correct word sequence."""
 
     start = datetime.datetime.today()
-    self.loadDict() #Load the dictionary
+    #self.loadDict() #Load the dictionary
     #Construct a phrase from a random number of random words in the dictionary
-    stopCode = " ".join(self._dict[randint(0, len(self._dict))-1] \
-      for _ in xrange(randint(*self.CODE_LENGTH)))
+    stopCode = self.genPhrase()
+    #stopCode = " ".join(self._dict[randint(0, len(self._dict))-1] \
+    #  for _ in xrange(randint(*self.CODE_LENGTH)))
 
     print self.SHUTOFF_MSG
     while raw_input("%s  %s\n  "%(stopCode, self.ANTI_COPY_MSG)) != stopCode:
