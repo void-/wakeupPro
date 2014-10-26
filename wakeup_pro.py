@@ -85,7 +85,12 @@ class Alarm(object):
     self._beeper.stop()
 
   def genPhrase(self):
-    """Generate an alarm shutoff string using a stream algorithm."""
+    """Generate an alarm shutoff string using a stream selection algorithm.
+
+    For each line in the dictionary, add it to a list of words with probability
+    1/n, where n is the current line of the dictionary.
+
+    """
 
     words = range(randint(*self.CODE_LENGTH))
     p = 1.0
