@@ -26,7 +26,6 @@ class Alarm(object):
     wakeupTime datetime object for when the alarm is set to go off.
     acclimate boolean indicating if the alarm should make acclamitory beeps.
     _beeper Beeper instance for beeping on a separate thread.
-    _dict python dictionary with words from DICT_PATH.
 
   """
 
@@ -49,7 +48,6 @@ class Alarm(object):
     self.acclimate = acclimate
     self.accelerate = accelerate
     self._beeper = Beeper()
-    self._dict = {}
 
   @staticmethod
   def BEEP(frequency=-1):
@@ -85,15 +83,6 @@ class Alarm(object):
     """Stop the beep thread."""
 
     self._beeper.stop()
-
-  def loadDict(self):
-    """Load all entries from DICT_PATH into _dict and remove newlines."""
-
-    with file(self.DICT_PATH, "r") as f:
-      i = 0
-      for line in f.readlines():
-        self._dict[i] = line.rstrip("\n")
-        i+=1
 
   def genPhrase(self):
     """Generate an alarm shutoff string using a stream algorithm."""
@@ -146,11 +135,8 @@ class Alarm(object):
     """Stop the alarm clock when the user enters the correct word sequence."""
 
     start = datetime.datetime.today()
-    #self.loadDict() #Load the dictionary
     #Construct a phrase from a random number of random words in the dictionary
     stopCode = self.genPhrase()
-    #stopCode = " ".join(self._dict[randint(0, len(self._dict))-1] \
-    #  for _ in xrange(randint(*self.CODE_LENGTH)))
 
     print self.SHUTOFF_MSG
     while raw_input("%s  %s\n  "%(stopCode, self.ANTI_COPY_MSG)) != stopCode:
@@ -158,8 +144,6 @@ class Alarm(object):
     self.stopBeeps()
     stop = datetime.datetime.today()
 
-    #Mark dictionary for garbage collection
-    self._dict = None
     self.logStop((stop - start).total_seconds())
 
   def logSleep(self, date, sleepTime):
