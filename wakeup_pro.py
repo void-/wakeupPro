@@ -203,6 +203,75 @@ class Alarm(object):
     a.startAlarm()
     a.stopAlarm()
 
+class SleepLogger(object):
+  """Logger class specialized for logging sleep pattern data.
+
+  This class uses a template for formatting the relative positions of output
+  data, but currently, the formats of individual fields can be anything.
+
+  close() must be called to ensure the data logged is actually written out.
+
+  The current implementation only saves the most recently logged data and only
+  writes to the log file if close() is called. It will error if not all the
+  logging methods are called: there are no default fields.
+
+  Class Variables:
+    FORMAT string for formatting the log output
+      slept units of time spent sleeping
+      start date that the alarm was started
+      shutoff units of time spent shutting off the alarm
+      length the length of the string, in units, needed to stop the alarm
+
+  """
+
+  FORMAT = "{slept}#{start} {shutoff} {length}"
+
+  def __init__(self, filePath):
+    """Given a path to a log file, initialize a SleepLogger.
+
+    This implementation doesn't actually open any files until close() is
+    called.
+    
+    """
+    self.filePath = filePath
+
+  def logSleep(self, timeSlept):
+    """Write to the log the amount of time spent sleeping.
+    
+    logSleep() expects timeSlept to be in seconds and formats it to hours for
+    the log. 
+
+    """
+    self.slept = sleepTime/3600
+
+  def logStart(self, start):
+    """Write to the log the time that the alarm was started.
+    
+    Currently there is no requirement for the formatting of start.
+
+    """
+    self.start = start
+
+  def logStop(self, stop):
+    """Write to the log how long it look for the alarm to stop."""
+
+    self.shutoff = stop
+
+  def logLength(self, length):
+    """Write to the log how long a string was needed to shutoff the alarm."""
+
+    self.length = length
+
+  def close(self):
+    """Ensure that the data logged is written out to the log file."""
+
+    with file(self.logPath, "a") as log:
+      log.write(self.FORMAT.format( \
+        slept = self.slept, \
+        start = self.start, \
+        shutoff = self.shutoff, \
+        length = self.length))
+
 class Beeper(threading.Thread):
   """Beeper object that beeps on another thread until stopped.
 
