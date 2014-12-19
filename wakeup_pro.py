@@ -26,6 +26,7 @@ class Alarm(object):
     wakeupTime datetime object for when the alarm is set to go off.
     acclimate boolean indicating if the alarm should make acclamitory beeps.
     _beeper Beeper instance for beeping on a separate thread.
+    _logger SleepLogger instance used to log data to LOG_PATH.
 
   """
 
@@ -48,6 +49,7 @@ class Alarm(object):
     self.acclimate = acclimate
     self.accelerate = accelerate
     self._beeper = Beeper()
+    self._logger = SleepLogger(self.LOG_PATH)
 
   @staticmethod
   def BEEP(frequency=-1):
@@ -85,14 +87,13 @@ class Alarm(object):
     self._beeper.stop()
 
   def genPhrase(self):
-    """Generate an alarm shutoff string using a stream selection algorithm.
+    """Generate a string of random words used to shutoff the alarm.
 
-    For each line in the dictionary, add it to a list of words with probability
-    1/n, where n is the current line of the dictionary.
+    For the ith line in the dictionary, add it to a list of words with
+    probability 1/i.
 
     """
-
-    words = range(randint(*self.CODE_LENGTH))
+    words = [""] * randint(*self.CODE_LENGTH)
     p = 1.0
     with file(self.DICT_PATH, "r") as f:
       for line in f.readlines():
@@ -114,12 +115,12 @@ class Alarm(object):
     thread.
 
     """
-
     #Print sleep message
     print(choice(self.SLEEP_MSG))
     now = datetime.datetime.today()
     wait = (self.wakeupTime - now).total_seconds()
-    self.logSleep(now, wait)
+    self._logger.logStart(now)
+    self._logger.logSleep(wait)
     if(self.accelerate and wait > self.ACCELERATE_TIME):
       Alarm.SLEEP(wait - self.ACCELERATE_TIME)
       wait -= (wait - self.ACCELERATE_TIME) #setup for acclimate
@@ -149,32 +150,9 @@ class Alarm(object):
     self.stopBeeps()
     stop = datetime.datetime.today()
 
-    self.logStop((stop - start).total_seconds())
-
-  def logSleep(self, date, sleepTime):
-    """Write to the log on which date for how long the alarm slept.
-
-    Given a datetime object and the number of seconds slept, write
-    to the log in the following format:
-      YYYY-MM-DD HH:MM:SS.SSSSSS, #ofSeconds\n
-    Ex.:
-      2013-07-06 13:21:12.632746, 10856
-
-    """
-    with file(self.LOG_PATH,"a") as f:
-      f.write("%s, %s\n" % (str(date), str(sleepTime)))
-
-  def logStop(self, time):
-    """Write to the log how long it look for the alarm to stop.
-
-    Given a floating point number representing the number of seconds it took
-    for the alarm to stop, write it to the log in the following format:
-      stop: #\n
-
-    """
-
-    with file(self.LOG_PATH,"a") as f:
-      f.write("stop: %s\n" % str(time))
+    self._logger.logStop((stop - start).total_seconds())
+    self._logger.logLength(len(stopCode))
+    self._logger.close()
 
   @staticmethod
   def main(argv):
@@ -216,11 +194,11 @@ class SleepLogger(object):
   logging methods are called: there are no default fields.
 
   Class Variables:
-    FORMAT string for formatting the log output
-      slept units of time spent sleeping
-      start date that the alarm was started
-      shutoff units of time spent shutting off the alarm
-      length the length of the string, in units, needed to stop the alarm
+    FORMAT string for formatting the log output.
+      slept units of time spent sleeping.
+      start date that the alarm was started.
+      shutoff units of time spent shutting off the alarm.
+      length the length of the string, in units, needed to stop the alarm.
 
   """
 
@@ -231,22 +209,22 @@ class SleepLogger(object):
 
     This implementation doesn't actually open any files until close() is
     called.
-    
+
     """
-    self.filePath = filePath
+    self.logPath = filePath
 
   def logSleep(self, timeSlept):
     """Write to the log the amount of time spent sleeping.
-    
+
     logSleep() expects timeSlept to be in seconds and formats it to hours for
-    the log. 
+    the log.
 
     """
-    self.slept = sleepTime/3600
+    self.slept = timeSlept/3600
 
   def logStart(self, start):
     """Write to the log the time that the alarm was started.
-    
+
     Currently there is no requirement for the formatting of start.
 
     """
