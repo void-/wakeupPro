@@ -298,25 +298,30 @@ class AcclimateEvent(SleepEvent):
     ITERATIONS the number of iterations that the acclimation pattern should be
       called.
 
+  Member Variables:
+    pattern function to call on the ith iteration of ITERATIONS to determine
+      how long to sleep.
+
   """
 
   PERIOD = 5 * 60
   ITERATIONS = 5
 
-  def AcclimateEvent(self, pattern=None):
+  def __init__(self, pattern=None):
     """Initialize an AcclimateEvent given the length of the acclimation period
     and optional pattern.
 
     """
-    self.pattern = pattern if pattern else AcclimateEvent.acclamitoryBeep
+    self.pattern = staticmethod(pattern) if pattern else \
+      AcclimateEvent.defaultPattern
 
   @staticmethod
   def defaultPattern(i):
     """Return the ith number in a particular exponential regression."""
 
-    return .5274 * (iteration**(-1.5214))
+    return .5274 * (i**(-1.5214))
 
-  def acclamitoryBeep():
+  def acclamitoryBeep(self):
     """Beep the computer's speaker for an acclamitory beep.
 
     Override this method to change which sounds are played.
@@ -348,9 +353,9 @@ class AcclimateEvent(SleepEvent):
     if not self.getTime():
       return
 
-    for i in xrange(1, self.ITERATIONS):
-      sleep(pattern(i))
-      acclamitoryBeep()
+    for i in xrange(1, self.ITERATIONS+1):
+      self.acclamitoryBeep()
+      sleep(self.PERIOD * self.pattern(i))
 
 class AccelerateEvent(SleepEvent):
   """AccelerateEvent extends SleepEvent to beep some time prior to waking up.
@@ -368,7 +373,7 @@ class AccelerateEvent(SleepEvent):
   PERIOD = 1 * 60 * 60
   ITERATIONS = 6
 
-  def beep():
+  def beep(self):
     """Beep the computer's speaker."""
     system("paplay /usr/share/sounds/ubuntu/stereo/message.ogg");
 
