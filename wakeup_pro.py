@@ -126,7 +126,7 @@ class Alarm(object):
     self._stopAlarm()
 
     self._logger.logStop( \
-      (self.wakeupTime - datetime.datetime.today()). total_seconds())
+      (datetime.datetime.today() - self.wakeupTime).total_seconds())
     self._logger.logLength(len(stopCode))
     self._logger.close()
 
