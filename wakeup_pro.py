@@ -38,7 +38,7 @@ class Alarm(object):
   LOG_PATH = "./.sleeplog"
   DICT_PATH = "/etc/dictionaries-common/words"
 
-  def __init__(self, wakeupTime, events):
+  def __init__(self, wakeupTime, events, noLog=False):
     """Initialize an Alarm given a time to wake up and a list of SleepEvents.
 
     `wakeupTime' should be an instance of a datetime.
@@ -46,10 +46,14 @@ class Alarm(object):
     `events' must be a Python list of SleepEvent subclass instanced of to occur
     during the period slept when goToSleep() is called.
 
+    `noLog' optional boolean specifies if data from this alarm should be
+    logged; by default it is. This is useful to exclude abnormal usages from
+    the log.
+
     """
     self.wakeupTime = wakeupTime
     self._beeper = Beeper()
-    self._logger = SleepLogger(self.LOG_PATH)
+    self._logger = SleepLogger(self.LOG_PATH, noLog)
     self.events = events
 
   def soundAlarm(self):
@@ -130,23 +134,6 @@ class Alarm(object):
     self._logger.logLength(len(stopCode))
     self._logger.close()
 
-  def stopAlarm(self):
-    """Stop the alarm clock when the user enters the correct word sequence."""
-
-    start = datetime.datetime.today()
-    #Construct a phrase from a random number of random words in the dictionary
-    stopCode = self.genPhrase()
-
-    print self.SHUTOFF_MSG
-    while raw_input("%s  %s\n  " % (stopCode, self.ANTI_COPY_MSG)) != stopCode:
-      print(self.INCORRECT_MSG)
-    self.stopBeeps()
-    stop = datetime.datetime.today()
-
-    self._logger.logStop((stop - start).total_seconds())
-    self._logger.logLength(len(stopCode))
-    self._logger.close()
-
   @staticmethod
   def main(argv):
     """Main method given an argument vector, parse it and start an Alarm.
@@ -156,7 +143,6 @@ class Alarm(object):
     If given as an argument, create the alarm to make acclamitory beeps.
 
     """
-
     #Create a timestruct from user input if no argument was given
     timestruct = strptime((raw_input("Enter wakeup time in the format:" \
       " HH:MM ") if len(argv) < 2 else argv[1]),"%H:%M")
@@ -175,7 +161,7 @@ class Alarm(object):
     if "-x" in argv:
       events.append(AccelerateEvent())
 
-    Alarm(time, events).goToSleep()
+    Alarm(time, events, "-n" in argv).goToSleep()
 
 class SleepLogger(object):
   """Logger class specialized for logging sleep pattern data.
@@ -196,17 +182,28 @@ class SleepLogger(object):
       shutoff units of time spent shutting off the alarm.
       length the length of the string, in units, needed to stop the alarm.
 
+  Member Variables:
+    filePath the file path to the persistent log file.
+    noPersist boolean indicating if logged entries should be flushed to disk.
+    slept number of hours slept for a single entry.
+    start datetime the alarm was started.
+    shutoff the number of seconds needed to shutoff the alarm.
+    length the length, in characters, of the alarm shutoff code.
   """
 
   FORMAT = "{slept}#{start} {shutoff} {length}\n"
 
-  def __init__(self, filePath):
+  def __init__(self, filePath, noPersist=False):
     """Given a path to a log file, initialize a SleepLogger.
+
+    noPersist optional boolean indicating whether entries should be written to
+    disk.
 
     This implementation doesn't actually open any files until close() is
     called.
 
     """
+    self.noPersist = noPersist
     self.logPath = filePath
 
   def logSleep(self, timeSlept):
@@ -239,6 +236,8 @@ class SleepLogger(object):
   def close(self):
     """Ensure that the data logged is written out to the log file."""
 
+    if noPersist: #don't write any non-persistent data
+      return
     with file(self.logPath, "a") as log:
       log.write(self.FORMAT.format( \
         slept = self.slept, \
