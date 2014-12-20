@@ -17,7 +17,6 @@ class Alarm(object):
     INCORRECT_MSG string to display when shutoff input does not match.
     SHUTOFF_MSG string to display when user is prompted to shutoff alarm.
     ANTI_COPY_MSG string that is invisible and affects terminal copying.
-    ACCLIMATE_LENGTH the length of acclimation time in seconds.
     BEEP_INTERVAL number of seconds between alarm beeps beeps.
     CODE_LENGTH tuple defining a lower and upper bounds for the code length.
     LOG_PATH path for the log file.
@@ -35,10 +34,7 @@ class Alarm(object):
   INCORRECT_MSG = "incorrect input"
   SHUTOFF_MSG = "Enter the following to terminate alarm:"
   ANTI_COPY_MSG = " "
-  ACCLIMATE_LENGTH = 5 * 60
-  ACCELERATE_BEEPS = 10
   ACCELERATE_TIME = 1 * 60 * 60
-  BEEP_INTERVAL = 1
   CODE_LENGTH = (4,8)
   LOG_PATH = "./.sleeplog"
   DICT_PATH = "/etc/dictionaries-common/words"
@@ -48,8 +44,8 @@ class Alarm(object):
 
     `wakeupTime' should be an instance of a datetime.
 
-    `events' must be a Python list of SleepEvent subclasses of to occur during
-    the period slept when goToSleep() is called.
+    `events' must be a Python list of SleepEvent subclass instanced of to occur
+    during the period slept when goToSleep() is called.
 
     """
     self.wakeupTime = wakeupTime
@@ -58,12 +54,6 @@ class Alarm(object):
     self._beeper = Beeper()
     self._logger = SleepLogger(self.LOG_PATH)
     self.events = events
-
-  @staticmethod
-  def ACCLIMATE_PATTERN(iteration):
-    """Return a number in an exponential regression for a given iteration."""
-
-    return .5274 * (iteration**(-1.5214))
 
   def soundAlarm(self):
     """Start a beep thread and beep until _stopAlarm is called."""
@@ -114,9 +104,9 @@ class Alarm(object):
     #Construct a phrase from a random number of random words in the dictionary
     stopCode = self.genPhrase()
 
-    #for each subclass, instantiate it with the time to wait
-    for i in xrange(len(events)):
-      self.events[i] = self.events[i](wait)
+    #for each subclass, inform it of the sleep length
+    for e in self.events:
+      e.setSleepLength(wait)
     heapq.heapify(self.events)
 
     #activate each of the events in the order they occur
@@ -176,15 +166,13 @@ class Alarm(object):
 
   @staticmethod
   def main(argv):
-    """Main method.
+    """Main method given an argument vector, parse it and start an Alarm.
 
     If no time is given as an argument, accept input from the user.
     Create an alarm and start it to go off for the specified time.
     If given as an argument, create the alarm to make acclamitory beeps.
 
     """
-    acclimate = ("-a" in argv)
-    accelerate = ("-x" in argv)
 
     #Create a timestruct from user input if no argument was given
     timestruct = strptime((raw_input("Enter wakeup time in the format:" \
@@ -197,8 +185,14 @@ class Alarm(object):
     if today > time:
       time+=datetime.timedelta(1)
 
-    a = Alarm(time, acclimate, accelerate)
-    a.goToSleep()
+    #parse the options to construct the events list
+    events = []
+    if "-a" in argv:
+      events.append(AcclimateEvent())
+    if "-x" in argv:
+      events.append(AccelerateEvent())
+
+    Alarm(time, events).goToSleep()
 
 class SleepLogger(object):
   """Logger class specialized for logging sleep pattern data.
@@ -269,29 +263,129 @@ class SleepLogger(object):
         shutoff = self.shutoff, \
         length = self.length))
 
-class SleepEvent(object):
-  """Abstract base class representing phenomena to occur during the sleep time.
-  
+class SleepEvent():
+  """Abstract class representing phenomena to occur during the sleep time.
+
+  setSleepLength() should be called before any other method.
+
+  Subclasses should override setSleepLength(), getTime(), and event().
+
   """
 
-  def getTime():
-    raise NotImplemented()
+  def setSleepLength(self, wait):
+    """Set the total sleep time as it may alter the behaviour of the event."""
 
-  def event():
-    raise NotImplemented()
+    raise NotImplementedError()
+
+  def getTime(self):
+    """Return the amount of time until the event is to occur.
+
+    If the event cannot occur for any reason, return 0.
+
+    """
+    raise NotImplementedError()
+
+  def event(self):
+    """Callback to make the event occur after getTime() has elapsed.
+
+    If the event cannot occur for any reason, event() should be a nop.
+
+    """
+    raise NotImplementedError()
+
+  def __le__(self, rhs):
+    """Return whether self is sooner than rhs.
+
+    self.getTime() < rhs.getTime().
+
+    """
+    return self.getTime() < rhs.getTime()
+
+class AcclimateEvent(SleepEvent):
+  """AclimateEvent extends SleepEvent to make acclamitory beeps during sleep.
+
+  The idea behind this event is that non-period sounds should be played prior
+  to the completion of the entire sleep period to ease the process of waking
+  up. This may help reduce fatigue and the desire to go back to sleep after the
+  alarm is shut off.
+
+  Class Variables:
+    PERIOD the length, in seconds, before the end of the sleep period to start
+      the acclimation period.
+    ITERATIONS the number of iterations that the acclimation pattern should be
+      called.
+
+  """
+
+  PERIOD = 5 * 60
+  ITERATIONS = 5
+
+  def AcclimateEvent(self, pattern=None):
+    """Initialize an AcclimateEvent given the length of the acclimation period
+    and optional pattern.
+
+    """
+    self.pattern = pattern if pattern else AcclimateEvent.acclamitoryBeep
+
+  @staticmethod
+  def defaultPattern(i):
+    """Return the ith number in a particular exponential regression."""
+
+    return .5274 * (iteration**(-1.5214))
+
+  def acclamitoryBeep():
+    """Beep the computer's speaker for an acclamitory beep.
+
+    Override this method to change which sounds are played.
+
+    """
+    system("paplay /usr/share/sounds/ubuntu/stereo/message.ogg");
+
+  def setSleepLength(self, wait):
+    """Set the total sleep period time."""
+
+    self.wait = wait - self.PERIOD
+
+  def getTime(self):
+    """Return the time until the acclimation period."""
+
+    if self.wait < 0:
+      return 0
+    return self.wait
+
+  def event(self):
+    """Start the acclimation period.
+
+    Beep and call pattern to determine how much to sleep in between.
+
+    If getTime() returns 0, then event() should act as a nop; otherwise, 
+    event() should block for at most PERIOD seconds.
+
+    """
+    if not getTime():
+      return
+
+    for i in xrange(1, self.ITERATIONS):
+      sleep(pattern(i))
+      acclamitoryBeep()
 
 class Beeper(threading.Thread):
   """Beeper object that beeps on another thread until stopped.
 
-  Subclasses Thread and overrides the run method to beep. The
-  beeping thread is started by calling run() and stopped by
-  a call to stop(). Once stop() is called, run() has no effect.
+  Subclasses Thread and overrides the run method to periodically beep. The
+  beeping thread is started by calling run() and stopped by a call to stop().
+  Once stop() is called, run() has no effect.
+
+  Class Variables:
+    BEEP_INTERVAL the number of seconds to wait between beeping.
 
   Member Variables:
     _beep boolean indicating if the Beeper should beep.
       Call stop() to set this to False and terminate the thread.
 
   """
+
+  BEEP_INTERVAL = 1
 
   def __init__(self):
     """Initialize a Beeper."""
@@ -300,24 +394,18 @@ class Beeper(threading.Thread):
     self._beep = True
 
   @staticmethod
-  def beep(frequency=-1):
-    """Make the computer beep by the internal speaker with optional frequency.
-
-    If no frequency is specified, the system default is used.
-    The current implementation relies on system calls to beep.
-    This method may need to be adjusted depending upon the system.
+  def beep():
+    """Make the computer beep the internal speaker.
 
     """
     system("paplay /usr/share/sounds/ubuntu/stereo/message.ogg");
-    #system("beep %s -e /dev/input/by-path/platform-pcspkr-event-spkr" % \
-    #  ("" if (frequency == -1) else ("-f %i" %frequency)))
 
   def run(self):
     """Beep and wait a certain interval until stop() is called."""
 
     while self._beep:
       Beeper.beep()
-      sleep(Alarm.BEEP_INTERVAL)
+      sleep(self.BEEP_INTERVAL)
 
   def stop(self):
     """Stop the beeping thread.
