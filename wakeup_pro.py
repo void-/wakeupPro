@@ -34,7 +34,6 @@ class Alarm(object):
   INCORRECT_MSG = "incorrect input"
   SHUTOFF_MSG = "Enter the following to terminate alarm:"
   ANTI_COPY_MSG = " "
-  ACCELERATE_TIME = 1 * 60 * 60
   CODE_LENGTH = (4,8)
   LOG_PATH = "./.sleeplog"
   DICT_PATH = "/etc/dictionaries-common/words"
@@ -49,8 +48,6 @@ class Alarm(object):
 
     """
     self.wakeupTime = wakeupTime
-    self.acclimate = acclimate
-    self.accelerate = accelerate
     self._beeper = Beeper()
     self._logger = SleepLogger(self.LOG_PATH)
     self.events = events
@@ -111,31 +108,17 @@ class Alarm(object):
 
     #activate each of the events in the order they occur
     while(len(self.events)):
-      e = heapq.heappop()
+      e = heapq.heappop(self.events)
       sleep(e.getTime())
       e.event()
 
     #sleep the remaining amount of time
-    timeLeft = datetime.datetime.today() - self.wakeupTime
+    timeLeft = (self.wakeupTime - datetime.datetime.today()).total_seconds()
     if timeLeft > 0:
       sleep(timeLeft)
 
     #Start beeping
     self.soundAlarm()
-
-    #if(self.accelerate and wait > self.ACCELERATE_TIME):
-    #  sleep(wait - self.ACCELERATE_TIME)
-    #  wait -= (wait - self.ACCELERATE_TIME) #setup for acclimate
-    #  for _ in xrange(self.ACCELERATE_BEEPS):
-    #    Alarm.BEEP()
-    #if (self.acclimate and wait > self.ACCLIMATE_LENGTH):
-    #  sleep(wait - self.ACCLIMATE_LENGTH)
-    #  for i in xrange(1,6):
-    #    i = self.ACCLIMATE_PATTERN(i)#Reassign i so its value can be used
-    #    Alarm.BEEP(4000*i)#Modulate the frequency
-    #    sleep(self.ACCLIMATE_LENGTH * i)
-    #else:
-    #  sleep(wait)
 
     print self.SHUTOFF_MSG
     while raw_input("%s  %s\n  " % (stopCode, self.ANTI_COPY_MSG)) != stopCode:
@@ -143,7 +126,7 @@ class Alarm(object):
     self._stopAlarm()
 
     self._logger.logStop( \
-      (wakeupTime - datetime.datetime.today()). total_seconds())
+      (self.wakeupTime - datetime.datetime.today()). total_seconds())
     self._logger.logLength(len(stopCode))
     self._logger.close()
 
@@ -362,12 +345,59 @@ class AcclimateEvent(SleepEvent):
     event() should block for at most PERIOD seconds.
 
     """
-    if not getTime():
+    if not self.getTime():
       return
 
     for i in xrange(1, self.ITERATIONS):
       sleep(pattern(i))
       acclamitoryBeep()
+
+class AccelerateEvent(SleepEvent):
+  """AccelerateEvent extends SleepEvent to beep some time prior to waking up.
+
+  The idea behind this event is that suddenly waking up some time before the
+  main alarm followed by immediate sleep leads to accelerated REM sleep.
+
+  Class Variables:
+    PERIOD the length, in seconds, before the end of the sleep period to start
+      the acclimation period.
+    ITERATIONS the number of times to beep when event is called.
+
+  """
+
+  PERIOD = 1 * 60 * 60
+  ITERATIONS = 6
+
+  def beep():
+    """Beep the computer's speaker."""
+    system("paplay /usr/share/sounds/ubuntu/stereo/message.ogg");
+
+  def setSleepLength(self, wait):
+    """Set the total sleep period time."""
+
+    self.wait = wait - self.PERIOD
+
+  def getTime(self):
+    """Return the time until the acclimation period."""
+
+    if self.wait < 0:
+      return 0
+    return self.wait
+
+  def event(self):
+    """Start the acclimation period.
+
+    Beep and call pattern to determine how much to sleep in between.
+
+    If getTime() returns 0, then event() should act as a nop; otherwise, 
+    event() should beep ITERATIONS times.
+
+    """
+    if not self.getTime():
+      return
+
+    for i in xrange(self.ITERATIONS):
+      self.beep()
 
 class Beeper(threading.Thread):
   """Beeper object that beeps on another thread until stopped.
