@@ -3,6 +3,7 @@ from sys import argv
 from os import system
 from time import sleep, strptime
 from random import randint, choice, random
+import heapq
 import threading, datetime
 
 class Alarm(object):
@@ -42,33 +43,21 @@ class Alarm(object):
   LOG_PATH = "./.sleeplog"
   DICT_PATH = "/etc/dictionaries-common/words"
 
-  def __init__(self, wakeupTime, acclimate=False, accelerate=False):
-    """Initialize an Alarm given wakeup time and optional acclimate boolean."""
+  def __init__(self, wakeupTime, events):
+    """Initialize an Alarm given a time to wake up and a list of SleepEvents.
 
+    `wakeupTime' should be an instance of a datetime.
+
+    `events' must be a Python list of SleepEvent subclasses of to occur during
+    the period slept when goToSleep() is called.
+
+    """
     self.wakeupTime = wakeupTime
     self.acclimate = acclimate
     self.accelerate = accelerate
     self._beeper = Beeper()
     self._logger = SleepLogger(self.LOG_PATH)
-
-  @staticmethod
-  def BEEP(frequency=-1):
-    """Make the computer beep by the internal speaker with optional frequency.
-
-    If no frequency is specified, the system default is used.
-    The current implementation relies on system calls to beep.
-    This method may need to be adjusted depending upon the system.
-
-    """
-    system("paplay /usr/share/sounds/ubuntu/stereo/message.ogg");
-    #system("beep %s -e /dev/input/by-path/platform-pcspkr-event-spkr" % \
-    #  ("" if (frequency == -1) else ("-f %i" %frequency)))
-
-  @staticmethod
-  def SLEEP(seconds):
-    """Sleep for a given number of seconds without using cpu."""
-
-    sleep(seconds)
+    self.events = events
 
   @staticmethod
   def ACCLIMATE_PATTERN(iteration):
@@ -76,12 +65,12 @@ class Alarm(object):
 
     return .5274 * (iteration**(-1.5214))
 
-  def startBeeps(self):
-    """Start a beep thread and beep until stop is called."""
+  def soundAlarm(self):
+    """Start a beep thread and beep until _stopAlarm is called."""
 
     self._beeper.start()
 
-  def stopBeeps(self):
+  def _stopAlarm(self):
     """Stop the beep thread."""
 
     self._beeper.stop()
@@ -103,8 +92,8 @@ class Alarm(object):
         p += 1
     return " ".join(words)
 
-  def startAlarm(self):
-    """Start the alarm clock and sleep and start beeping when done.
+  def goToSleep(self):
+    """Start the alarm clock by going to sleep and then activating the alarm.
 
     The procedure:
     Display a random sleep message to the user. Compute the number of
@@ -117,25 +106,56 @@ class Alarm(object):
     """
     #Print sleep message
     print(choice(self.SLEEP_MSG))
-    now = datetime.datetime.today()
-    wait = (self.wakeupTime - now).total_seconds()
-    self._logger.logStart(now)
+    alarmStart = datetime.datetime.today()
+    wait = (self.wakeupTime - alarmStart).total_seconds()
+    self._logger.logStart(alarmStart)
     self._logger.logSleep(wait)
-    if(self.accelerate and wait > self.ACCELERATE_TIME):
-      Alarm.SLEEP(wait - self.ACCELERATE_TIME)
-      wait -= (wait - self.ACCELERATE_TIME) #setup for acclimate
-      for _ in xrange(self.ACCELERATE_BEEPS):
-        Alarm.BEEP()
-    if (self.acclimate and wait > self.ACCLIMATE_LENGTH):
-      Alarm.SLEEP(wait - self.ACCLIMATE_LENGTH)
-      for i in xrange(1,6):
-        i = self.ACCLIMATE_PATTERN(i)#Reassign i so its value can be used
-        Alarm.BEEP(4000*i)#Modulate the frequency
-        Alarm.SLEEP(self.ACCLIMATE_LENGTH * i)
-    else:
-      self.SLEEP(wait)
+
+    #Construct a phrase from a random number of random words in the dictionary
+    stopCode = self.genPhrase()
+
+    #for each subclass, instantiate it with the time to wait
+    for i in xrange(len(events)):
+      self.events[i] = self.events[i](wait)
+    heapq.heapify(self.events)
+
+    #activate each of the events in the order they occur
+    while(len(self.events)):
+      e = heapq.heappop()
+      sleep(e.getTime())
+      e.event()
+
+    #sleep the remaining amount of time
+    timeLeft = datetime.datetime.today() - self.wakeupTime
+    if timeLeft > 0:
+      sleep(timeLeft)
+
     #Start beeping
-    self.startBeeps()
+    self.soundAlarm()
+
+    #if(self.accelerate and wait > self.ACCELERATE_TIME):
+    #  sleep(wait - self.ACCELERATE_TIME)
+    #  wait -= (wait - self.ACCELERATE_TIME) #setup for acclimate
+    #  for _ in xrange(self.ACCELERATE_BEEPS):
+    #    Alarm.BEEP()
+    #if (self.acclimate and wait > self.ACCLIMATE_LENGTH):
+    #  sleep(wait - self.ACCLIMATE_LENGTH)
+    #  for i in xrange(1,6):
+    #    i = self.ACCLIMATE_PATTERN(i)#Reassign i so its value can be used
+    #    Alarm.BEEP(4000*i)#Modulate the frequency
+    #    sleep(self.ACCLIMATE_LENGTH * i)
+    #else:
+    #  sleep(wait)
+
+    print self.SHUTOFF_MSG
+    while raw_input("%s  %s\n  " % (stopCode, self.ANTI_COPY_MSG)) != stopCode:
+      print(self.INCORRECT_MSG)
+    self._stopAlarm()
+
+    self._logger.logStop( \
+      (wakeupTime - datetime.datetime.today()). total_seconds())
+    self._logger.logLength(len(stopCode))
+    self._logger.close()
 
   def stopAlarm(self):
     """Stop the alarm clock when the user enters the correct word sequence."""
@@ -145,7 +165,7 @@ class Alarm(object):
     stopCode = self.genPhrase()
 
     print self.SHUTOFF_MSG
-    while raw_input("%s  %s\n  "%(stopCode, self.ANTI_COPY_MSG)) != stopCode:
+    while raw_input("%s  %s\n  " % (stopCode, self.ANTI_COPY_MSG)) != stopCode:
       print(self.INCORRECT_MSG)
     self.stopBeeps()
     stop = datetime.datetime.today()
@@ -178,8 +198,7 @@ class Alarm(object):
       time+=datetime.timedelta(1)
 
     a = Alarm(time, acclimate, accelerate)
-    a.startAlarm()
-    a.stopAlarm()
+    a.goToSleep()
 
 class SleepLogger(object):
   """Logger class specialized for logging sleep pattern data.
@@ -202,7 +221,7 @@ class SleepLogger(object):
 
   """
 
-  FORMAT = "{slept}#{start} {shutoff} {length}"
+  FORMAT = "{slept}#{start} {shutoff} {length}\n"
 
   def __init__(self, filePath):
     """Given a path to a log file, initialize a SleepLogger.
@@ -250,6 +269,17 @@ class SleepLogger(object):
         shutoff = self.shutoff, \
         length = self.length))
 
+class SleepEvent(object):
+  """Abstract base class representing phenomena to occur during the sleep time.
+  
+  """
+
+  def getTime():
+    raise NotImplemented()
+
+  def event():
+    raise NotImplemented()
+
 class Beeper(threading.Thread):
   """Beeper object that beeps on another thread until stopped.
 
@@ -269,12 +299,25 @@ class Beeper(threading.Thread):
     threading.Thread.__init__(self, None, None, None, (), {})
     self._beep = True
 
+  @staticmethod
+  def beep(frequency=-1):
+    """Make the computer beep by the internal speaker with optional frequency.
+
+    If no frequency is specified, the system default is used.
+    The current implementation relies on system calls to beep.
+    This method may need to be adjusted depending upon the system.
+
+    """
+    system("paplay /usr/share/sounds/ubuntu/stereo/message.ogg");
+    #system("beep %s -e /dev/input/by-path/platform-pcspkr-event-spkr" % \
+    #  ("" if (frequency == -1) else ("-f %i" %frequency)))
+
   def run(self):
     """Beep and wait a certain interval until stop() is called."""
 
     while self._beep:
-      Alarm.BEEP()
-      Alarm.SLEEP(Alarm.BEEP_INTERVAL)
+      Beeper.beep()
+      sleep(Alarm.BEEP_INTERVAL)
 
   def stop(self):
     """Stop the beeping thread.
