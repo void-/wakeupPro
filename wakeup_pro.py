@@ -236,7 +236,7 @@ class SleepLogger(object):
   def close(self):
     """Ensure that the data logged is written out to the log file."""
 
-    if noPersist: #don't write any non-persistent data
+    if self.noPersist: #don't write any non-persistent data
       return
     with file(self.logPath, "a") as log:
       log.write(self.FORMAT.format( \
