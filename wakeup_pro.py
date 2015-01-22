@@ -1,6 +1,6 @@
 #!/usr/bin/python
 from sys import argv
-from os import system
+from subprocess import call
 from time import sleep, strptime
 from random import randint, choice, random
 import heapq
@@ -326,7 +326,7 @@ class AcclimateEvent(SleepEvent):
     Override this method to change which sounds are played.
 
     """
-    system("paplay /usr/share/sounds/ubuntu/stereo/message.ogg");
+    defaultBeep()
 
   def setSleepLength(self, wait):
     """Set the total sleep period time."""
@@ -374,7 +374,8 @@ class AccelerateEvent(SleepEvent):
 
   def beep(self):
     """Beep the computer's speaker."""
-    system("paplay /usr/share/sounds/ubuntu/stereo/message.ogg");
+
+    defaultBeep()
 
   def setSleepLength(self, wait):
     """Set the total sleep period time."""
@@ -429,10 +430,9 @@ class Beeper(threading.Thread):
 
   @staticmethod
   def beep():
-    """Make the computer beep the internal speaker.
+    """Make the computer beep the internal speaker."""
 
-    """
-    system("paplay /usr/share/sounds/ubuntu/stereo/message.ogg");
+    defaultBeep()
 
   def run(self):
     """Beep and wait a certain interval until stop() is called."""
@@ -449,6 +449,11 @@ class Beeper(threading.Thread):
 
     """
     self._beep = False
+
+def defaultBeep():
+  """Cause the computer to make some noise that will likely wake the user."""
+
+  call(("/usr/bin/paplay", "/usr/share/sounds/ubuntu/stereo/message.ogg"))
 
 #Execute the main method
 if __name__ == "__main__":
