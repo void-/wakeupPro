@@ -74,11 +74,11 @@ class Alarm(object):
 
     """
     words = [""] * randint(*self.CODE_LENGTH)
-    p = 1.0
+    p = 1
     with file(self.DICT_PATH, "r") as f:
       for line in f.readlines():
         for i in xrange(len(words)):
-          if random() < (1/p):
+          if random() < (1.0/p):
             words[i] = line.rstrip("\n")
         p += 1
     return " ".join(words)
@@ -275,13 +275,41 @@ class SleepEvent():
     """
     raise NotImplementedError()
 
-  def __le__(self, rhs):
-    """Return whether self is sooner than rhs.
+  def __lt__(self, rhs):
+    """Return whether self is sooner than rhs, the right hand side.
 
     self.getTime() < rhs.getTime().
 
     """
     return self.getTime() < rhs.getTime()
+
+  def __eq__(self, rhs):
+    """Return whether self is at the same time as rhs, the right hand side.
+    
+    self.getTime() == rhs.getTime().
+    
+    """
+    return self.getTime() == rhs.getTime()
+
+  def __le__(self, rhs):
+    """Return whether self <= rhs."""
+
+    return (self < rhs) or (self == rhs)
+
+  def __ne__(self, rhs):
+    """Return whether self != rhs."""
+
+    return not (self == rhs)
+
+  def __gt__(self, rhs):
+    """Return whether self > rhs."""
+
+    return not (self <= rhs)
+
+  def __ge__(self, rhs):
+    """Return whether self >= rhs."""
+
+    return (self > rhs) or (self == rhs)
 
 class AcclimateEvent(SleepEvent):
   """AclimateEvent extends SleepEvent to make acclamitory beeps during sleep.
