@@ -28,11 +28,16 @@ Graphing the number of hours slept each day is intended to be very simple. To
 graph other data, more complicated parsing needs to be done.
 
 To simply graph the number of hours slept over time as logged by wakeupPro, run
-    $ graph -T X -a .sleeplog
-
+```bash
+$ graph -T X -a .sleeplog
+```
 For a better looking graph, try
-    $ graph -T X --bitmap-size 1024x1024 -a -S 3 .sleeplog
+```bash
+$ graph -T X --bitmap-size 1024x1024 -a -S 3 .sleeplog
+```
 
 To graph the amount of time it took to shut off the alarm each day(as some
 metric of fatigue), try
-    $ grep .sleeplog -o -P -e " [0-9.]+ " | graph -T X --bitmap-size 1024x1024 -a -S 3
+```bash
+$ grep .sleeplog -o -P -e " [0-9.]+ " | graph -T X --bitmap-size 1024x1024 -a -S 3
+```
