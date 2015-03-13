@@ -418,7 +418,7 @@ class AccelerateEvent(SleepEvent):
     return self.wait
 
   def event(self):
-    """Start the acclimation period.
+    """Start the acceleration period.
 
     Beep and call pattern to determine how much to sleep in between.
 
