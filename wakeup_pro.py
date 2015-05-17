@@ -2,7 +2,7 @@
 from sys import argv
 from subprocess import call
 from time import sleep, strptime
-from random import randint, choice, random
+from random import randint, choice
 import threading, datetime
 
 class Alarm(object):
@@ -76,8 +76,9 @@ class Alarm(object):
     p = 1
     with file(self.DICT_PATH, "r") as f:
       for line in f.readlines():
+        #for each word, replace it with the pth dictionary word with P() = 1/p
         for i in xrange(len(words)):
-          if random() < (1.0/p):
+          if randint(1, p) == 1:
             words[i] = line.rstrip("\n")
         p += 1
     return " ".join(words)
