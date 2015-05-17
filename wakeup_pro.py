@@ -115,8 +115,11 @@ class Alarm(object):
 
     #activate each of the events in the order they occur
     for e in self.events:
-      sleep(e.getTime())
-      e.event()
+      timeLeft = e.getTime() - \
+        (datetime.datetime.today() - alarmStart).total_seconds()
+      if timeLeft > 0:
+        sleep(timeLeft)
+        e.event()
 
     #sleep the remaining amount of time
     timeLeft = (self.wakeupTime - datetime.datetime.today()).total_seconds()
