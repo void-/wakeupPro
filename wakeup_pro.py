@@ -3,7 +3,6 @@ from sys import argv
 from subprocess import call
 from time import sleep, strptime
 from random import randint, choice, random
-import heapq
 import threading, datetime
 
 class Alarm(object):
@@ -108,11 +107,10 @@ class Alarm(object):
     #for each subclass, inform it of the sleep length
     for e in self.events:
       e.setSleepLength(wait)
-    heapq.heapify(self.events)
+    self.events.sort()
 
     #activate each of the events in the order they occur
-    while(len(self.events)):
-      e = heapq.heappop(self.events)
+    for e in self.events():
       sleep(e.getTime())
       e.event()
 
