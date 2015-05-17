@@ -58,6 +58,8 @@ class Alarm(object):
   def soundAlarm(self):
     """Start a beep thread and beep until _stopAlarm is called."""
 
+    print "soundAlarm()"
+    return
     self._beeper.start()
 
   def _stopAlarm(self):
@@ -98,6 +100,7 @@ class Alarm(object):
     print(choice(self.SLEEP_MSG))
     alarmStart = datetime.datetime.today()
     wait = (self.wakeupTime - alarmStart).total_seconds()
+    print wait
     self._logger.logStart(alarmStart)
     self._logger.logSleep(wait)
 
@@ -108,9 +111,10 @@ class Alarm(object):
     for e in self.events:
       e.setSleepLength(wait)
     self.events.sort()
+    print self.events
 
     #activate each of the events in the order they occur
-    for e in self.events():
+    for e in self.events:
       sleep(e.getTime())
       e.event()
 
@@ -123,8 +127,8 @@ class Alarm(object):
     self.soundAlarm()
 
     print self.SHUTOFF_MSG
-    while raw_input("%s  %s\n  " % (stopCode, self.ANTI_COPY_MSG)) != stopCode:
-      print(self.INCORRECT_MSG)
+    #while raw_input("%s  %s\n  " % (stopCode, self.ANTI_COPY_MSG)) != stopCode:
+    #  print(self.INCORRECT_MSG)
     self._stopAlarm()
 
     self._logger.logStop( \
@@ -375,6 +379,7 @@ class AcclimateEvent(SleepEvent):
     event() should block for at most PERIOD seconds.
 
     """
+    print "AcclimateEvent event()"
     if not self.getTime():
       return
 
@@ -424,6 +429,7 @@ class AccelerateEvent(SleepEvent):
     event() should beep ITERATIONS times.
 
     """
+    print "AccelerateEvent event()"
     if not self.getTime():
       return
 
@@ -480,6 +486,11 @@ def defaultBeep():
   """Cause the computer to make some noise that will likely wake the user."""
 
   call(("/usr/bin/paplay", "/usr/share/sounds/ubuntu/stereo/message.ogg"))
+
+#mock out for testing
+def sleep(t):
+  print t
+defaultBeep = lambda : None
 
 #Execute the main method
 if __name__ == "__main__":
